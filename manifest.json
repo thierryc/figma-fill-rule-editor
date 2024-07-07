@@ -1,7 +1,14 @@
 {
-  "name": "Fill Rule Editor",
-  "id": "771155994770327940",
+  "name": "figma-fill-rule-editor-dev",
+  "id": "1391765568770221941",
   "api": "1.0.0",
   "main": "code.js",
-  "ui": "ui.html"
+  "capabilities": [],
+  "enableProposedApi": false,
+  "ui": "ui.html",
+  "networkAccess": {
+    "allowedDomains": [
+      "none"
+    ]
+  }
 }

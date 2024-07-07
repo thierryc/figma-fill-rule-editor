@@ -1,1 +1,11 @@
-code.js
+# Node modules
+node_modules/
+
+# OS generated files
+.DS_Store
+
+# Environment variable files [ALWAYS]
+.env
+.env.local
+.env.*.local
+
