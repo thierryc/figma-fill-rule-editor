@@ -1,11 +1,14 @@
 {
-  "name": "figma-fill-rule-editor-dev",
+  "name": "Vector Path Editor",
   "id": "1391765568770221941",
   "api": "1.0.0",
   "main": "code.js",
   "capabilities": [],
   "enableProposedApi": false,
   "ui": "ui.html",
+  "editorType": [
+    "figma"
+  ],
   "networkAccess": {
     "allowedDomains": [
       "none"
