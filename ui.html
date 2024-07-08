@@ -72,6 +72,7 @@
   let hoverEvenoddColor = evenoddColor;
   let geometryColor = '#777';
   let hoverGeometryColor = '#000';
+  let firstGeometryColor = '#f00';
 
   // Create diagonal pattern for nonzero and evenodd colors using SVG data
   createDiagonalPattern(nonzeroColor, x => nonzeroColor = x);
@@ -92,6 +93,7 @@
   function hasVertex(seg, index) {
     return seg.start === index || seg.end === index;
   }
+
   // Determine the starting vertex of a network loop
   function startingVertex(network, loop) {
     const { segments } = network;
@@ -121,6 +123,43 @@
     if (takeEnd) return first.end;
     throw new Error('Failure in startingVertex');
   }
+
+
+  function calculateWindingNumber(loop, vertices) {
+    let windingNumber = 0;
+    const n = loop.length;
+
+    for (let i = 0; i < n; i++) {
+      const { x: x1, y: y1 } = vertices[loop[i]];
+      const { x: x2, y: y2 } = vertices[loop[(i + 1) % n]];
+
+      if (y1 <= 0) {
+        if (y2 > 0 && (x1 * y2 - x2 * y1) > 0) {
+          windingNumber += 1;
+        }
+      } else {
+        if (y2 <= 0 && (x1 * y2 - x2 * y1) < 0) {
+          windingNumber -= 1;
+        }
+      }
+    }
+
+    return windingNumber;
+  }
+
+  function determinePathDirection(loop, vertices) {
+    const windingNumber = calculateWindingNumber(loop, vertices);
+
+    if (windingNumber > 0) {
+      return 1; // Clockwise
+    } else if (windingNumber < 0) {
+      return -1; // Counterclockwise
+    } else {
+      return 0; // Indeterminate
+    }
+  }
+
+
 
   // Get tangent vector for a specific vertex index in a segment
   function tangentForVertex(segment, index) {
@@ -207,9 +246,23 @@
 
   // Draw a vertex as a filled circle
   function drawVertex(x, y, color) {
+    const size = 2; // Size of the circle
     c.fillStyle = color;
     c.beginPath();
-    c.arc(x, y, 2, 0, Math.PI * 2, false);
+    c.arc(x, y, size, 0, Math.PI * size, false);
+    c.fill();
+  }
+
+  // Draw a vertex as a diamond circle
+  function drawFirstVertex(x, y, color) {
+    const size = 4; // Size of the diamond
+    c.fillStyle = color;
+    c.beginPath();
+    c.moveTo(x, y - size);
+    c.lineTo(x + size, y);
+    c.lineTo(x, y + size);
+    c.lineTo(x - size, y);
+    c.closePath();
     c.fill();
   }
 
@@ -306,17 +359,26 @@
         geometryColor);
     }
 
-    // Draw vertices as small filled circles
-    for (const { x, y } of network.vertices) {
-      drawVertex(tx(x), ty(y), geometryColor);
-    }
-
     // Loop winding order
     regionIndex = 0;
     for (const { windingRule, loops } of network.regions) {
       let loopIndex = 0;
 
       for (const loop of loops) {
+        const direction = determinePathDirection(loop, network.vertices);
+        const firstVertexIndex = direction === -1 ? loop[0] : loop[loop.length - 1];
+        const fv = network.vertices[firstVertexIndex]; // network.vertices[startingVertex(network, loop)];
+        drawFirstVertex(tx(fv.x), ty(fv.y), firstGeometryColor);
+        for (const vi of loop) {
+          const cv = network.vertices[vi];
+          const isHoveredVertex = hover && hover.type === 'vertex' && hover.vertexIndex === vi;
+          if (isHoveredVertex) {
+            drawFirstVertex(tx(cv.x), ty(cv.y), hoverGeometryColor);
+          } else {
+            drawVertex(tx(cv.x), ty(cv.y), geometryColor);
+          }
+        }
+
         const isHovered = hover &&
           hover.type === 'loop' &&
           hover.regionIndex === regionIndex &&
@@ -500,6 +562,20 @@
     return crossingCount !== 0;
   }
 
+  function reorderLoop(loop, vertexIndex, direction) {
+    const index = loop.indexOf(vertexIndex);
+    if (index === -1) return loop; // Return original loop if startIndex not found
+    if (direction === -1) {
+      return [...loop.slice(index), ...loop.slice(0, index)];
+    } else {
+      return [
+        ...loop.slice(index + 1), // Elements after the item
+        ...loop.slice(0, index),  // Elements before the item
+        vertexIndex                       // The item itself
+      ];
+    }
+  }
+
   function hitTest(point) {
     prevMouse = point;
 
@@ -509,6 +585,29 @@
 
     const network = node.vectorNetwork;
     const { t, tx, ty } = createTransformers(network);
+
+    function hitTestVertex(threshold) {
+      let regionIndex = 0;
+      for (const { windingRule, loops } of network.regions) {
+        let loopIndex = 0;
+        for (const loop of loops) {
+          for (const vertexIndex of loop) {
+            const v = network.vertices[vertexIndex];
+            if (v !== undefined) {
+              const dx = point.x - tx(v.x);
+              const dy = point.y - ty(v.y);
+              const distance = Math.sqrt(dx * dx + dy * dy);
+              if (distance <= threshold) {
+                return { type: 'vertex', regionIndex, loopIndex, vertexIndex, v };
+              }
+            }
+          }
+          loopIndex++;
+        }
+        regionIndex++;
+      }
+      return null;
+    }
 
     function hitTestLoops(threshold) {
       let regionIndex = 0;
@@ -525,6 +624,12 @@
         regionIndex++;
       }
       return null;
+    }
+
+    // Hit-test vertex
+    const vhit = hitTestVertex(4);
+    if (vhit !== null) {
+      return vhit;
     }
 
     // Hit-test loops
@@ -554,18 +659,30 @@
 
   onmousedown = ({ pageX, pageY }) => {
     hover = hitTest({ x: pageX, y: pageY });
-
+    const { vertices, segments, regions } = { ...node.vectorNetwork };
 
     // if hover node and shift is pressed
+    if (hover && hover.type === 'vertex') {
+      // work on counterclockwise but not on clockwise
+
+
+      const currentLoop = regions[hover.regionIndex].loops[hover.loopIndex];
+      const dir = determinePathDirection(currentLoop, vertices);
+      const reorderedLoop = reorderLoop(currentLoop, hover.vertexIndex, dir);
+      node.vectorNetwork.regions[hover.regionIndex].loops[hover.loopIndex] = reorderedLoop;
+      parent.postMessage({ pluginMessage: { node } }, '*');
+    }
 
     if (hover && hover.type === 'loop') {
-      node.vectorNetwork.regions[hover.regionIndex].loops[hover.loopIndex].reverse();
+      const currentLoop = regions[hover.regionIndex].loops[hover.loopIndex];
+      node.vectorNetwork.regions[hover.regionIndex].loops[hover.loopIndex] = currentLoop.reverse();
       parent.postMessage({ pluginMessage: { node } }, '*');
     }
 
     else if (hover && hover.type === 'region') {
-      const region = node.vectorNetwork.regions[hover.regionIndex];
+      const region = regions[hover.regionIndex];
       region.windingRule = region.windingRule === 'NONZERO' ? 'EVENODD' : 'NONZERO';
+      node.vectorNetwork.regions[hover.regionIndex] = region;
       parent.postMessage({ pluginMessage: { node } }, '*');
     }
 
