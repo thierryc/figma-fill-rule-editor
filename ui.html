@@ -776,7 +776,6 @@
       const region = regions[hover.regionIndex];
       region.windingRule = region.windingRule === 'NONZERO' ? 'EVENODD' : 'NONZERO';
       node.vectorNetwork.regions[hover.regionIndex] = region;
-      console.log(node.vectorNetwork.regions);
       parent.postMessage({ pluginMessage: { node } }, '*');
     }
 
