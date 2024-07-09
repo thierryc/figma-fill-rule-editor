@@ -34,4 +34,7 @@ figma.ui.onmessage = msg => {
             node.vectorNetwork = msg.node.vectorNetwork;
         }
     }
+    if (msg.type === 'open-url') {
+        figma.openExternal(msg.url);
+    }
 };
