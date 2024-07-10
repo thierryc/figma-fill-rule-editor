@@ -17,6 +17,7 @@ interface PluginAPI {
 
   readonly clientStorage: ClientStorageAPI
 
+  getNodeByIdAsync(id: string): BaseNode | null
   getNodeById(id: string): BaseNode | null
   getStyleById(id: string): BaseStyle | null
 

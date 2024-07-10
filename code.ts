@@ -33,11 +33,14 @@ function update(): void {
 figma.on('selectionchange', update);
 update();
 
-figma.ui.onmessage = msg => {
+figma.ui.onmessage = async msg => {
   if (msg.node) {
-    const node = figma.getNodeById(msg.node.id);
+    const node = await figma.getNodeByIdAsync(msg.node.id);
     if (node !== null && node.type === 'VECTOR') {
       node.vectorNetwork = msg.node.vectorNetwork;
     }
+  }
+  if (msg.type === 'open-url') {
+    figma.openExternal(msg.url);
   }
 };
