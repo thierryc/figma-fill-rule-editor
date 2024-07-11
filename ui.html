@@ -459,7 +459,7 @@
 
       for (const loop of loops) {
         const direction = determinePathDirection(loop, network.vertices);
-        const firstVertexIndex = direction === -1 ? loop[0] : loop[loop.length - 1];
+        const firstVertexIndex = direction === -1 ? loop[1] : loop[loop.length - 1];
         const fv = network.vertices[firstVertexIndex]; // network.vertices[startingVertex(network, loop)];
         drawFirstVertex(tx(fv.x), ty(fv.y), firstGeometryColor);
         for (const vi of loop) {
